@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GalaxEye - Satellite Tile Intelligence & Triage Console</title>
+    <style>
+        :root {
+            --bg-primary: #0b0f19;
+            --bg-secondary: #111827;
+            --bg-card: #1f293d;
+            --border: #374151;
+            --accent: #38bdf8;
+            --accent-hover: #0ea5e9;
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-main);
+            line-height: 1.5;
+            padding: 24px;
+        }
+
+        .container { max-width: 1280px; margin: 0 auto; }
+        
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 24px;
+        }
+
+        .logo-area h1 {
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logo-badge {
+            background: linear-gradient(135deg, #0284c7, #38bdf8);
+            color: #0b0f19;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 6px;
+            text-transform: uppercase;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--success);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 500;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); }
+
+        .links-bar { display: flex; gap: 12px; }
+        .links-bar a {
+            color: var(--accent);
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+            background: var(--bg-card);
+            padding: 6px 14px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            transition: all 0.2s;
+        }
+        .links-bar a:hover { background: var(--accent); color: var(--bg-primary); }
+
+        /* Stats Bar */
+        .stats-bar {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            padding: 16px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .stat-card.stat-accepted { border-color: rgba(16, 185, 129, 0.4); }
+        .stat-card.stat-uncertain { border-color: rgba(245, 158, 11, 0.4); }
+
+        .stat-value { font-size: 22px; font-weight: 700; color: var(--accent); margin-top: 4px; }
+        .stat-value.val-accepted { color: var(--success); }
+        .stat-value.val-uncertain { color: var(--warning); }
+        .stat-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; font-weight: 600; }
+
+        .grid-layout {
+            display: grid;
+            grid-template-columns: 420px 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: var(--card-shadow);
+        }
+
+        .card h2 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .drop-zone {
+            border: 2px dashed var(--border);
+            border-radius: 10px;
+            padding: 30px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: rgba(31, 41, 61, 0.3);
+            margin-bottom: 16px;
+        }
+
+        .drop-zone:hover, .drop-zone.dragover {
+            border-color: var(--accent);
+            background: rgba(56, 189, 248, 0.05);
+        }
+
+        .preview-box {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #000;
+            border-radius: 8px;
+            height: 140px;
+            margin-bottom: 16px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+
+        .preview-box img {
+            max-height: 100%;
+            max-width: 100%;
+            object-fit: contain;
+            image-rendering: pixelated;
+        }
+
+        .btn-primary {
+            width: 100%;
+            background: var(--accent);
+            color: #0b0f19;
+            border: none;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: var(--accent-hover);
+            transform: translateY(-1px);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .class-badge {
+            font-size: 22px;
+            font-weight: 700;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-pill {
+            font-size: 12px;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 6px;
+            letter-spacing: 0.5px;
+            display: inline-block;
+        }
+        .status-ACCEPTED { background: rgba(16, 185, 129, 0.2); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.5); }
+        .status-UNCERTAIN { background: rgba(245, 158, 11, 0.2); color: var(--warning); border: 1px solid rgba(245, 158, 11, 0.5); }
+
+        .priority-badge {
+            font-size: 11px;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .priority-CRITICAL { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid #ef4444; }
+        .priority-HIGH { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid #f59e0b; }
+        .priority-MEDIUM { background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid #38bdf8; }
+        .priority-LOW { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid #10b981; }
+
+        .policy-box {
+            background: var(--bg-card);
+            border-radius: 8px;
+            padding: 10px 14px;
+            margin-bottom: 14px;
+            font-size: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid var(--border);
+        }
+
+        .prob-bar-container { margin-bottom: 8px; }
+        .prob-bar-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            margin-bottom: 3px;
+        }
+        .prob-bar-track {
+            height: 7px;
+            background: var(--bg-card);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .prob-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #0284c7, #38bdf8);
+            border-radius: 4px;
+            transition: width 0.4s ease;
+        }
+
+        .provenance-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 14px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border);
+            font-size: 11px;
+            font-family: monospace;
+            color: var(--text-muted);
+        }
+
+        .provenance-item { background: var(--bg-card); padding: 8px 10px; border-radius: 6px; }
+        .provenance-item span { color: var(--text-main); font-weight: 500; }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        th {
+            text-align: left;
+            padding: 10px 12px;
+            background: var(--bg-card);
+            color: var(--text-muted);
+            font-weight: 600;
+            border-bottom: 1px solid var(--border);
+        }
+
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid rgba(55, 65, 81, 0.5);
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        tr:hover td { background: rgba(31, 41, 61, 0.4); }
+
+        .btn-action {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 3px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 500;
+        }
+        .btn-action:hover { background: var(--accent); color: #0b0f19; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo-area">
+                <h1>GalaxEye <span class="logo-badge">Offline ML Systems</span></h1>
+            </div>
+            <div class="links-bar">
+                <span class="status-badge"><span class="status-dot"></span> 100% Offline Edge Ready</span>
+                <a href="/docs" target="_blank">Swagger OpenAPI Docs</a>
+                <a href="/health" target="_blank">Healthcheck</a>
+            </div>
+        </header>
+
+        <!-- Stats Overview: Prominently Highlights ACCEPTED vs UNCERTAIN -->
+        <div class="stats-bar" id="statsBar">
+            <div class="stat-card">
+                <div class="stat-label">Total Ingested Tiles</div>
+                <div class="stat-value" id="statTotal">-</div>
+            </div>
+            <div class="stat-card stat-accepted">
+                <div class="stat-label">ACCEPTED (&ge; 70% Conf)</div>
+                <div class="stat-value val-accepted" id="statAcceptedRate">-</div>
+            </div>
+            <div class="stat-card stat-uncertain">
+                <div class="stat-label">UNCERTAIN (&lt; 70% Conf)</div>
+                <div class="stat-value val-uncertain" id="statUncertainRate">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Avg CPU Latency</div>
+                <div class="stat-value" id="statLatency">-</div>
+            </div>
+        </div>
+
+        <div class="grid-layout">
+            <div class="card">
+                <h2>Ingest Satellite Tile</h2>
+                <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                    <p style="font-size: 14px; font-weight: 500;">Click to select satellite tile image</p>
+                    <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Supports EuroSAT PNG, JPG, TIFF (64x64)</p>
+                    <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleFile(this.files[0])">
+                </div>
+
+                <div class="preview-box">
+                    <img id="previewImg" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' fill='%23374151' viewBox='0 0 16 16'%3E%3Cpath d='M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z'/%3E%3Cpath d='M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2h-12zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1h12z'/%3E%3C/svg%3E" alt="Preview">
+                </div>
+
+                <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 14px;">
+                    <input type="checkbox" id="forceRecompute">
+                    <label for="forceRecompute" style="font-size: 12px; color: var(--text-muted); cursor: pointer;">Force Recompute (bypass cache)</label>
+                </div>
+
+                <button class="btn-primary" id="predictBtn" onclick="runPrediction()" disabled>Run Local Classifier</button>
+            </div>
+
+            <div class="card">
+                <h2>Prediction & Confidence Policy</h2>
+                <div id="resultPlaceholder" style="text-align: center; color: var(--text-muted); padding: 50px 0;">
+                    Upload a tile and run prediction to inspect results.
+                </div>
+
+                <div id="resultContent" style="display: none;">
+                    <div class="result-header">
+                        <div>
+                            <div style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">Top Prediction & Status</div>
+                            <div class="class-badge">
+                                <span id="resClass">Forest</span>
+                                <span class="status-pill" id="resStatusBadge">ACCEPTED</span>
+                            </div>
+                            <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;" id="resConf">Confidence: 95.8% (Policy Threshold: &tau; = 0.70)</div>
+                        </div>
+                        <div style="text-align: right;">
+                            <span class="priority-badge" id="resPriorityBadge">LOW PRIORITY</span>
+                            <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;" id="resReason">Reason: STANDARD_CONFIDENCE</div>
+                        </div>
+                    </div>
+
+                    <div class="policy-box">
+                        <div>
+                            <span style="color: var(--text-muted);">Runner-Up:</span> <strong id="resRunnerUp">Highway (34.8%)</strong>
+                        </div>
+                        <div>
+                            <span style="color: var(--text-muted);">Top-2 Margin:</span> <strong id="resMargin" style="color: var(--accent);">0.154</strong>
+                        </div>
+                        <div>
+                            <span style="color: var(--text-muted);">Review Priority:</span> <strong id="resPriorityScore">0.65</strong>
+                        </div>
+                    </div>
+
+                    <div style="font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 8px;">Full Class Probability Distribution:</div>
+                    <div id="probBars"></div>
+
+                    <div class="provenance-grid">
+                        <div class="provenance-item">Tile SHA256: <br><span id="resTileHash">-</span></div>
+                        <div class="provenance-item">Inference Latency: <br><span id="resLatency">-</span></div>
+                        <div class="provenance-item">Model Checksum: <br><span id="resModelHash">-</span></div>
+                        <div class="provenance-item">Execution: <br><span id="resCache">-</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+                <h2>Analyst Triage & Prediction Records</h2>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <button style="background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border); padding: 6px 12px; border-radius: 6px; font-size: 12px; cursor: pointer;" onclick="loadHistory('all')">All Records</button>
+                    <button style="background: rgba(16, 185, 129, 0.15); color: var(--success); border: 1px solid var(--success); padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;" onclick="loadStatusFilter('ACCEPTED')">✅ ACCEPTED (&ge;70%)</button>
+                    <button style="background: rgba(245, 158, 11, 0.15); color: var(--warning); border: 1px solid var(--warning); padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;" onclick="loadStatusFilter('UNCERTAIN')">⚠️ UNCERTAIN (&lt;70%)</button>
+                    <button style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid #ef4444; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;" onclick="loadShortlist('critical_priority')">🚨 Critical Triage</button>
+                    <button style="background: rgba(56, 189, 248, 0.15); color: var(--accent); border: 1px solid var(--accent); padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;" onclick="loadShortlist('conflict_margin')">⚔️ Conflict Margin (&lt;15%)</button>
+                    <button style="background: rgba(167, 139, 250, 0.15); color: #a78bfa; border: 1px solid #7c3aed; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;" onclick="loadShortlist('per_class_anomaly')">🔬 Anomaly Outliers</button>
+                    <a href="/predictions/export/csv" target="_blank" style="background: #2563eb; color: #fff; text-decoration: none; padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">📥 Export CSV</a>
+                </div>
+            </div>
+            <div id="shortlistCriteria" style="font-size: 12px; color: var(--accent); margin-bottom: 10px; font-weight: 500;">Showing: All recent predictions</div>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>UUID</th>
+                            <th>Filename</th>
+                            <th>Status (Policy &tau;=0.70)</th>
+                            <th>Top Prediction</th>
+                            <th>Runner-Up</th>
+                            <th>Margin</th>
+                            <th>Triage Priority</th>
+                            <th>Latency</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyBody">
+                        <tr><td colspan="9" style="text-align:center; color: var(--text-muted);">Loading database records...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentFile = null;
+
+        function handleFile(file) {
+            if (!file) return;
+            currentFile = file;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                document.getElementById('previewImg').src = e.target.result;
+                document.getElementById('predictBtn').disabled = false;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function runPrediction() {
+            if (!currentFile) return;
+            const btn = document.getElementById('predictBtn');
+            btn.disabled = true;
+            btn.innerText = 'Inferencing on CPU...';
+
+            const force = document.getElementById('forceRecompute').checked;
+            const formData = new FormData();
+            formData.append('file', currentFile);
+
+            try {
+                const url = force ? '/predict?force_recompute=true' : '/predict';
+                const res = await fetch(url, { method: 'POST', body: formData });
+                const data = await res.json();
+
+                if (!res.ok) {
+                    alert('Error: ' + JSON.stringify(data.detail || data));
+                    return;
+                }
+
+                document.getElementById('resultPlaceholder').style.display = 'none';
+                document.getElementById('resultContent').style.display = 'block';
+
+                document.getElementById('resClass').innerText = data.predicted_class;
+                
+                const statusBadge = document.getElementById('resStatusBadge');
+                statusBadge.innerText = data.status;
+                statusBadge.className = 'status-pill status-' + data.status;
+
+                document.getElementById('resConf').innerText = 'Confidence: ' + (data.confidence * 100).toFixed(1) + '% (Policy Threshold: \u03c4 = 0.70)';
+                
+                const badge = document.getElementById('resPriorityBadge');
+                badge.innerText = data.review_priority_level + ' PRIORITY (' + data.review_priority.toFixed(2) + ')';
+                badge.className = 'priority-badge priority-' + data.review_priority_level;
+                
+                document.getElementById('resReason').innerText = 'Reason: ' + data.review_reason;
+                document.getElementById('resRunnerUp').innerText = data.top_2_class + ' (' + (data.top_2_confidence * 100).toFixed(1) + '%)';
+                document.getElementById('resMargin').innerText = data.confidence_margin.toFixed(3);
+                document.getElementById('resPriorityScore').innerText = data.review_priority.toFixed(3);
+
+                document.getElementById('resTileHash').innerText = data.tile_hash.substring(0, 16) + '...';
+                document.getElementById('resLatency').innerText = data.inference_latency_ms + 'ms (Total: ' + data.total_latency_ms + 'ms)';
+                document.getElementById('resModelHash').innerText = data.model_checksum.substring(0, 16) + '...';
+                document.getElementById('resCache').innerText = data.is_cached ? 'CACHE HIT (0ms CPU)' : 'COMPUTED LIVE';
+
+                const probContainer = document.getElementById('probBars');
+                probContainer.innerHTML = '';
+                for (const [cls, prob] of Object.entries(data.probabilities)) {
+                    const pct = (prob * 100).toFixed(1);
+                    probContainer.innerHTML += `
+                        <div class="prob-bar-container">
+                            <div class="prob-bar-header">
+                                <span>${cls}</span>
+                                <span>${pct}%</span>
+                            </div>
+                            <div class="prob-bar-track">
+                                <div class="prob-bar-fill" style="width: ${pct}%"></div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                loadSummary();
+                loadHistory();
+
+            } catch (err) {
+                alert('Inference failed: ' + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = 'Run Local Classifier';
+            }
+        }
+
+        async function loadSummary() {
+            try {
+                const res = await fetch('/predictions/summary');
+                const data = await res.json();
+                document.getElementById('statTotal').innerText = data.total_predictions;
+                
+                const acc = data.status_distribution.find(s => s.status === 'ACCEPTED');
+                const unc = data.status_distribution.find(s => s.status === 'UNCERTAIN');
+
+                const accCount = acc ? acc.count : 0;
+                const accPct = acc ? acc.percentage : 0;
+                const uncCount = unc ? unc.count : 0;
+                const uncPct = unc ? unc.percentage : 0;
+
+                document.getElementById('statAcceptedRate').innerText = `${accCount} (${accPct}%)`;
+                document.getElementById('statUncertainRate').innerText = `${uncCount} (${uncPct}%)`;
+                document.getElementById('statLatency').innerText = data.average_inference_latency_ms.toFixed(1) + ' ms';
+            } catch (e) {
+                console.error('Failed to load summary', e);
+            }
+        }
+
+        async function loadStatusFilter(statusVal) {
+            try {
+                const res = await fetch(`/predictions?status=${statusVal}&limit=50`);
+                const data = await res.json();
+                document.getElementById('shortlistCriteria').innerText = `Filtered by Status: ${statusVal} (${data.total} tiles)`;
+                renderTable(data.items);
+            } catch (e) {
+                console.error('Failed to load status filter', e);
+            }
+        }
+
+        async function loadShortlist(mode) {
+            try {
+                const res = await fetch(`/predictions/shortlist?mode=${mode}&limit=50`);
+                const data = await res.json();
+                document.getElementById('shortlistCriteria').innerText = `Shortlist Criteria: ${data.criteria} (Found: ${data.total} tiles)`;
+                renderTable(data.items);
+            } catch (e) {
+                console.error('Failed to load shortlist', e);
+            }
+        }
+
+        async function loadHistory() {
+            try {
+                const res = await fetch('/predictions?limit=50');
+                const data = await res.json();
+                document.getElementById('shortlistCriteria').innerText = `Showing: All recent predictions (${data.total} total in database)`;
+                renderTable(data.items);
+            } catch (e) {
+                console.error('Failed to load history', e);
+            }
+        }
+
+        async function reviewPrediction(predId, currentClass) {
+            const decision = prompt(`Review for ${predId.substring(0,8)}...\\nEnter decision: ACCEPT, REJECT, or CORRECT_CLASS`, 'ACCEPT');
+            if (!decision) return;
+            
+            let corrected = null;
+            if (decision.toUpperCase() === 'CORRECT_CLASS') {
+                corrected = prompt('Enter correct class name (AnnualCrop, Forest, Highway, Industrial, Residential, River, SeaLake):', currentClass);
+                if (!corrected) return;
+            }
+            
+            const comment = prompt('Optional analyst note / comment:', '');
+
+            try {
+                const res = await fetch(`/predictions/${predId}/review`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        decision: decision.toUpperCase(),
+                        reviewed_class: corrected,
+                        comment: comment,
+                        reviewer_id: 'analyst_console'
+                    })
+                });
+                if (res.ok) {
+                    alert('Analyst review feedback recorded successfully.');
+                    loadHistory();
+                    loadSummary();
+                } else {
+                    const err = await res.json();
+                    alert('Failed to submit review: ' + JSON.stringify(err));
+                }
+            } catch (e) {
+                alert('Error submitting review: ' + e.message);
+            }
+        }
+
+        function renderTable(items) {
+            const tbody = document.getElementById('historyBody');
+            tbody.innerHTML = '';
+
+            if (!items || items.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color: var(--text-muted);">No matching predictions found for this filter.</td></tr>';
+                return;
+            }
+
+            items.forEach(item => {
+                const badgeClass = 'priority-' + (item.review_priority_level || 'LOW');
+                const statusClass = 'status-' + (item.status || 'ACCEPTED');
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${item.prediction_id.substring(0, 8)}...</td>
+                        <td>${item.filename}</td>
+                        <td><span class="status-pill ${statusClass}">${item.status}</span></td>
+                        <td><strong>${item.predicted_class}</strong> <span style="color:var(--text-muted)">(${(item.confidence * 100).toFixed(1)}%)</span></td>
+                        <td>${item.top_2_class || '-'} <span style="color:var(--text-muted)">(${item.top_2_confidence ? (item.top_2_confidence * 100).toFixed(1) + '%' : '-'})</span></td>
+                        <td style="color:var(--accent); font-weight:600;">${item.confidence_margin !== undefined ? item.confidence_margin.toFixed(3) : '-'}</td>
+                        <td><span class="priority-badge ${badgeClass}" style="font-size:10px; padding:2px 6px;">${item.review_priority_level || 'LOW'}</span></td>
+                        <td>${item.inference_latency_ms} ms</td>
+                        <td><button class="btn-action" onclick="reviewPrediction('${item.prediction_id}', '${item.predicted_class}')">Review</button></td>
+                    </tr>
+                `;
+            });
+        }
+
+        window.onload = () => {
+            loadSummary();
+            loadHistory();
+        };
+    </script>
+</body>
+</html>
