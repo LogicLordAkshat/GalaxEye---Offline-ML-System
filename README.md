@@ -29,16 +29,19 @@ This service provides an end-to-end classification pipeline for satellite imager
 ## 2. Screenshots
 
 ### 1. Ingestion & Overview Dashboard
-![Dashboard Overview](./docs/images/dashboard_overview.png)
+![Dashboard Overview]<img width="1396" height="832" alt="Screenshot 2026-09-27 192142" src="https://github.com/user-attachments/assets/9cef00a4-dae1-42ae-bf4d-5a9458c2aa5a" />
+
 *Real-time metrics, system health, and satellite tile ingestion.*
 
 ### 2. Live Prediction & Confidence Policy
-![Tile Prediction](./docs/images/tile_prediction.png)
+![Tile Prediction]<img width="1376" height="847" alt="Screenshot 2026-09-27 192203" src="https://github.com/user-attachments/assets/3db4cce3-f14d-4cef-b479-3223b6ca258c" />
+
 *Tile classification, confidence score, policy threshold evaluation, and runner-up margin.*
 
-### 3. Analyst Triage Queue & Anomaly Shortlist
-![Analyst Triage](./docs/images/analyst_triage.png)
-*Triage queue with one‑click filters for ACCEPTED, UNCERTAIN, and statistical anomaly detection.*
+### 3. Analyst Triage Queue & Anomaly Shortlist with Export CSV
+![Export CSV]<img width="1292" height="651" alt="Screenshot 2026-09-27 192308" src="https://github.com/user-attachments/assets/e2f15c73-f685-4096-829e-553823433cf1" />
+
+*Triage queue with one‑click filters for ACCEPTED, UNCERTAIN, and statistical anomaly detection also can get csv excel instantly.*
 ---
 
 ## 2. Architecture & Pipeline
