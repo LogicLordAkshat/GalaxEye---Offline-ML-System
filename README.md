@@ -41,7 +41,7 @@ This service provides an end-to-end classification pipeline for satellite imager
 ### 3. Analyst Triage Queue & Anomaly Shortlist with Export CSV
 <img width="1292" height="651" alt="Screenshot 2026-09-27 192308" src="https://github.com/user-attachments/assets/e2f15c73-f685-4096-829e-553823433cf1" />
 
-*Triage queue with one‑click filters for ACCEPTED, UNCERTAIN, and statistical anomaly detection also can get csv excel instantly.*
+
 ---
 
 ## 2. Architecture & Pipeline
