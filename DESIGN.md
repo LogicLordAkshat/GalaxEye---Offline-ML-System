@@ -79,7 +79,7 @@ The system is designed as a modular, layered service separating network boundari
 
 The system uses an embedded SQLite database configured with **Write-Ahead Logging (WAL)**.
 
-### Schema: `predictions` Table
+### Schema: `predictions` & `prediction_reviews` Tables
 ```sql
 CREATE TABLE predictions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -88,6 +88,12 @@ CREATE TABLE predictions (
     filename TEXT NOT NULL,                  -- Original client filename
     predicted_class TEXT NOT NULL,           -- Top class name (Index)
     confidence REAL NOT NULL,                -- Softmax score [0.0 - 1.0]
+    top_2_class TEXT NOT NULL DEFAULT '',    -- Runner-up class name
+    top_2_confidence REAL NOT NULL DEFAULT 0.0, -- Runner-up probability
+    confidence_margin REAL NOT NULL DEFAULT 0.0, -- Top1 - Top2 margin
+    review_priority REAL NOT NULL DEFAULT 0.0, -- Triage priority score [0.0 - 1.0] (Index)
+    review_priority_level TEXT NOT NULL DEFAULT 'LOW', -- 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' (Index)
+    review_reason TEXT NOT NULL DEFAULT 'STANDARD_CONFIDENCE', -- Reason for priority
     status TEXT NOT NULL,                    -- 'ACCEPTED' | 'UNCERTAIN' (Index)
     all_probabilities TEXT NOT NULL,         -- Full class distribution as JSON string
     model_name TEXT NOT NULL,                -- 'landuse_cnn'
@@ -98,13 +104,26 @@ CREATE TABLE predictions (
     total_latency_ms REAL NOT NULL,          -- End-to-end request latency
     created_at TEXT NOT NULL                 -- ISO 8601 UTC timestamp (Index)
 );
+
+CREATE TABLE prediction_reviews (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    prediction_id TEXT NOT NULL,             -- Foreign Key to predictions(prediction_id) (Index)
+    decision TEXT NOT NULL,                  -- 'ACCEPT' | 'REJECT' | 'CORRECT_CLASS'
+    reviewed_class TEXT,                     -- Corrected class if corrected
+    comment TEXT,                            -- Analyst notes / visual inspection feedback
+    reviewer_id TEXT DEFAULT 'analyst_offline',
+    reviewed_at TEXT NOT NULL                -- ISO 8601 UTC timestamp
+);
 ```
 
 ### Why These Fields Exist:
 - **`tile_hash`**: Guarantees content-based deduplication and image data integrity.
 - **`model_version` + `model_checksum`**: Ensures absolute traceability. If a model is updated or replaced, historical rows remain explicitly tied to the exact weights file that created them.
+- **`top_2_class` + `confidence_margin`**: Quantifies multi-class ambiguity (competing classes on boundary tiles).
+- **`review_priority` + `review_priority_level`**: Enables automated triage shortlisting for analysts.
 - **`all_probabilities`**: Essential for secondary triage. An analyst can inspect whether a misclassified "Highway" had a 40% secondary probability for "River".
 - **`status`**: Enables analysts to query only verified/high-confidence tiles or extract uncertain tiles for manual review.
+- **`prediction_reviews` table**: Captures human-in-the-loop analyst audit decisions for offline feedback and future model curation.
 
 ---
 

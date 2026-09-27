@@ -12,7 +12,6 @@ Built for the **GalaxEye Backend Engineer, ML Systems Take-Home Assignment**.
 | **Part 1: Design Note** | [`DESIGN.md`](./DESIGN.md) | 1–2 page comprehensive technical design note (architecture, tile lifecycle, storage, trade-offs, confidence policy, questions). |
 | **Part 2: Working Slice** | [`app/`](./app)<br>[`README.md`](./README.md) | Complete working implementation with `/predict`, SQLite WAL storage, deduplication, human review, anomaly triage, and web console. |
 | **Part 3: Problem Solving** | [`ANSWERS.md`](./ANSWERS.md) | Clear, grounded answers to all 4 scenario reasoning questions. |
-| **Interview Defense Guide** | [`INTERVIEW_PREP.md`](./INTERVIEW_PREP.md) | 20-point technical defense, architecture rationale, and live-coding reference. |
 
 ---
 
@@ -109,7 +108,6 @@ d:/Galaxeye/
 │   └── test_repository.py       # Persistence, query filters, summary stats
 ├── DESIGN.md                    # Part 1: Official Design Note
 ├── ANSWERS.md                   # Part 3: Problem Solving Answers
-├── INTERVIEW_PREP.md            # Comprehensive 20-Point Interview Walkthrough
 ├── requirements.txt             # Minimal pinned dependencies
 ├── README.md                    # Operational documentation
 └── README.txt                   # EuroSAT dataset attribution

@@ -26,3 +26,6 @@ htmlcov/
 *.swp
 .DS_Store
 Thumbs.db
+
+# Private Notes
+INTERVIEW_PREP.md
