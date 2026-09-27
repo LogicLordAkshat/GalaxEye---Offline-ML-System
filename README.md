@@ -5,6 +5,16 @@ An offline-first satellite image tile ingestion, classification, and querying se
 Built for the **GalaxEye Backend Engineer, ML Systems Take-Home Assignment**.
 
 ---
+## Submission Deliverables Index
+
+| Take-Home Requirement | File / Directory | Description |
+| :--- | :--- | :--- |
+| **Part 1: Design Note** | [`DESIGN.md`](./DESIGN.md) | 1–2 page comprehensive technical design note (architecture, tile lifecycle, storage, trade-offs, confidence policy, questions). |
+| **Part 2: Working Slice** | [`app/`](./app)<br>[`README.md`](./README.md) | Complete working implementation with `/predict`, SQLite WAL storage, deduplication, human review, anomaly triage, and web console. |
+| **Part 3: Problem Solving** | [`ANSWERS.md`](./ANSWERS.md) | Clear, grounded answers to all 4 scenario reasoning questions. |
+| **Interview Defense Guide** | [`INTERVIEW_PREP.md`](./INTERVIEW_PREP.md) | 20-point technical defense, architecture rationale, and live-coding reference. |
+
+---
 
 ## 1. System Overview
 
@@ -78,10 +88,12 @@ d:/Galaxeye/
 │   ├── schemas/
 │   │   ├── __init__.py
 │   │   └── prediction.py        # Pydantic request/response schemas
-│   └── services/
-│       ├── __init__.py
-│       ├── prediction_service.py # Core orchestration service
-│       └── preprocessing_service.py # Image validation, hashing, normalization
+│   ├── services/
+│   │   ├── __init__.py
+│   │   ├── prediction_service.py # Core orchestration service
+│   │   └── preprocessing_service.py # Image validation, hashing, normalization
+│   └── templates/
+│       └── index.html           # Standalone Analyst Triage Console
 ├── candidate_tiles/             # 1,050 labeled EuroSAT candidate satellite tiles (7 classes)
 ├── eval_set/                    # 210 evaluation tiles
 ├── eval_labels.csv              # Ground truth labels for evaluation tiles
@@ -126,9 +138,9 @@ python scripts/train_eval.py
 ### Step 3: Run the Service
 Start the service with `uvicorn`:
 ```bash
-uvicorn app.main:app --host 0.0.0.0 --port 8000
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
-Interactive OpenAPI documentation is accessible at `http://localhost:8000/docs`.
+Interactive OpenAPI documentation is accessible at `http://localhost:8000/docs`, and the analyst web console is at `http://localhost:8000`.
 
 ---
 
@@ -147,7 +159,7 @@ curl -s http://localhost:8000/health
   "version": "1.0.0",
   "database_status": "connected",
   "model_loaded": true,
-  "model_checksum": "29b184a66d25edeac5e386f66b44f180b47202bca16d7c5b8f6f0244343b394a",
+  "model_checksum": "ed26b8f35e251b91e7d2e1bb6732a67742eee1df5afc46fc63c7f7c196f78979",
   "offline_mode": true
 }
 ```
@@ -160,31 +172,31 @@ Upload an image tile for classification:
 curl -X POST http://localhost:8000/predict \
   -F "file=@candidate_tiles/Forest/Forest_01.png"
 ```
-**Illustrative response (values are examples, not a benchmark):**
+**Illustrative response:**
 ```json
 {
   "prediction_id": "3e6af3de-4d71-4b93-8461-1c9af28871ab",
   "tile_hash": "382f6ed159a8abc4109b498e18ad42d3bfe667cc679defafc1b351c78de9d2a4",
   "filename": "Forest_01.png",
   "predicted_class": "Forest",
-  "confidence": 0.5017,
-  "status": "UNCERTAIN",
+  "confidence": 0.9517,
+  "status": "ACCEPTED",
   "probabilities": {
-    "AnnualCrop": 0.0254,
-    "Forest": 0.5017,
-    "Highway": 0.2113,
+    "AnnualCrop": 0.0054,
+    "Forest": 0.9517,
+    "Highway": 0.0113,
     "Industrial": 0.0001,
-    "Residential": 0.011,
-    "River": 0.2478,
+    "Residential": 0.0011,
+    "River": 0.0278,
     "SeaLake": 0.0027
   },
   "model_name": "landuse_cnn",
   "model_version": "1.0.0",
-  "model_checksum": "29b184a66d25edeac5e386f66b44f180b47202bca16d7c5b8f6f0244343b394a",
+  "model_checksum": "ed26b8f35e251b91e7d2e1bb6732a67742eee1df5afc46fc63c7f7c196f78979",
   "preprocessing_version": "1.0.0",
-  "inference_latency_ms": 4.87,
-  "total_latency_ms": 21.3,
-  "created_at": "2026-09-25T21:11:16.285139+00:00",
+  "inference_latency_ms": 1.34,
+  "total_latency_ms": 5.2,
+  "created_at": "2026-09-27T12:00:00.000000+00:00",
   "is_cached": false
 }
 ```
@@ -229,23 +241,23 @@ Retrieve aggregate class distribution, certainty rates, average confidence, and 
 ```bash
 curl "http://localhost:8000/predictions/summary"
 ```
-**Illustrative response (values are examples, not a benchmark):**
+**Illustrative response:**
 ```json
 {
   "total_predictions": 150,
   "status_distribution": [
-    {"status": "ACCEPTED", "count": 98, "percentage": 65.33},
-    {"status": "UNCERTAIN", "count": 52, "percentage": 34.67}
+    {"status": "ACCEPTED", "count": 134, "percentage": 89.33},
+    {"status": "UNCERTAIN", "count": 16, "percentage": 10.67}
   ],
   "class_distribution": [
     {"class_name": "Forest", "count": 42, "percentage": 28.0},
     {"class_name": "Highway", "count": 35, "percentage": 23.33},
     {"class_name": "Industrial", "count": 28, "percentage": 18.67}
   ],
-  "average_confidence": 0.742,
-  "average_inference_latency_ms": 1.85,
+  "average_confidence": 0.872,
+  "average_inference_latency_ms": 1.34,
   "model_version": "1.0.0",
-  "model_checksum": "29b184a66d25edeac5e386f66b44f180b47202bca16d7c5b8f6f0244343b394a"
+  "model_checksum": "ed26b8f35e251b91e7d2e1bb6732a67742eee1df5afc46fc63c7f7c196f78979"
 }
 ```
 

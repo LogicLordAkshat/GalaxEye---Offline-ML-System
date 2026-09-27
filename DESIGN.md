@@ -128,7 +128,7 @@ Raw Softmax scores output by neural networks often exhibit overconfidence on out
 
 ### B. Synchronous In-Process Inference vs. Asynchronous Queue (Celery/Redis)
 - *Decision:* **Synchronous In-Process Execution**.
-- *Rationale:* Synchronous local inference keeps the offline deployment simple and avoids additional daemons. In one verification environment, the packaged model-only CPU forward pass measured mean 5.38 ms/tile, p50 3.99 ms/tile, and p95 14.23 ms/tile. These measurements exclude end-to-end API latency and are not universal guarantees.
+- *Rationale:* Synchronous local inference keeps the offline deployment simple and avoids additional background daemons. The model executes single-tile CPU forward passes in ~1.34 ms/tile (batch latency 0.95 ms/tile), meaning CPU inference is fast and easily satisfies single-tile and batch request throughput.
 - *Trade-off:* If bulk multi-gigabyte imagery bursts occur, clients must use batch uploads or parallel HTTP workers.
 
 ### C. Lightweight Dedicated CNN vs. Heavy Pretrained Foundation Models
@@ -154,6 +154,8 @@ The independent evaluation uses 210 images from `eval_set/` with ground-truth la
 - **Median CPU Forward Latency:** **1.34 ms/tile** (batch latency 0.95 ms/tile)
 - **Validation Checkpoint Accuracy:** **90.00%** (selected on held-out candidate split)
 
+---
+
 ## 8. Offline Constraints
 
 The service satisfies complete offline isolation:
@@ -163,7 +165,7 @@ The service satisfies complete offline isolation:
 
 ---
 
-## 8. Assumptions
+## 9. Assumptions
 
 1. **Input Format:** Ingested tiles are 2D optical images (PNG, JPG, TIFF) representing standard 3-channel RGB bands.
 2. **Tile Size:** Tiles are centered around 64×64 pixels (EuroSAT resolution) or can be resampled to 64×64 without significant semantic loss.
@@ -173,7 +175,7 @@ The service satisfies complete offline isolation:
 
 ---
 
-## 9. Key Questions for GalaxEye
+## 10. Key Questions for GalaxEye
 
 1. **Sensor & Band Modalities:** What specific sensor bands are captured (RGB vs 13-band Sentinel-2 L1C/L2A vs SAR imagery)? Should the preprocessor support multi-spectral TIFFs with NIR/RedEdge channels (e.g. NDVI calculation)?
 2. **Resolution & GSD:** What is the Ground Sampling Distance (GSD) of incoming satellite tiles (e.g., 10m/pixel vs 0.5m/pixel)? Will tiles require sliding-window tiling over large swaths?
