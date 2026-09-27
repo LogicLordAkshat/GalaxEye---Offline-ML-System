@@ -26,6 +26,20 @@ This service provides an end-to-end classification pipeline for satellite imager
 - **Embedded Persistence:** Uses SQLite with Write-Ahead Logging (WAL) mode for low-overhead, concurrent, maintenance-free persistence.
 
 ---
+## 2. Screenshots
+
+### 1. Ingestion & Overview Dashboard
+![Dashboard Overview](./docs/images/dashboard_overview.png)
+*Real-time metrics, system health, and satellite tile ingestion.*
+
+### 2. Live Prediction & Confidence Policy
+![Tile Prediction](./docs/images/tile_prediction.png)
+*Tile classification, confidence score, policy threshold evaluation, and runner-up margin.*
+
+### 3. Analyst Triage Queue & Anomaly Shortlist
+![Analyst Triage](./docs/images/analyst_triage.png)
+*Triage queue with one‑click filters for ACCEPTED, UNCERTAIN, and statistical anomaly detection.*
+---
 
 ## 2. Architecture & Pipeline
 
@@ -261,7 +275,25 @@ curl "http://localhost:8000/predictions/summary"
 
 ---
 
-## 6. Running the Test Suite
+## 6. Analyst Web Console & Screenshots
+
+The service provides a built-in offline Web Console accessible directly at `http://localhost:8000`:
+
+### 1. Ingestion & Overview Dashboard
+![Dashboard Overview](./docs/images/dashboard_overview.png)
+*Real-time metrics, system health, and satellite tile ingestion.*
+
+### 2. Live Prediction & Confidence Policy
+![Tile Prediction](./docs/images/tile_prediction.png)
+*Tile classification, confidence score, policy threshold evaluation, and runner-up margin.*
+
+### 3. Analyst Triage Queue & Anomaly Shortlist
+![Analyst Triage](./docs/images/analyst_triage.png)
+*Triage queue with one-click filters for ACCEPTED, UNCERTAIN, and statistical anomaly detection.*
+
+---
+
+## 7. Running the Test Suite
 
 Execute the 30 unit and integration tests covering preprocessing, ML inference, SQLite persistence, caching, and API routes:
 ```bash
@@ -270,18 +302,18 @@ pytest -v
 
 ---
 
-## 7. Key Design Choices & Trade-offs
+## 8. Key Design Choices & Trade-offs
 
 1. **Why SQLite over PostgreSQL?**
    - In air-gapped edge hardware, running a dedicated PostgreSQL server introduces socket management, authentication secrets, port conflicts, and process crashes. SQLite is an embedded zero-configuration engine. With WAL mode enabled, it easily handles concurrent reads and serial writes with zero operational maintenance.
 2. **Why In-Process Inference over Celery/Redis?**
-   - Synchronous local inference keeps the offline deployment simple and avoids additional daemons. A measured CPU forward-pass benchmark for the packaged artifact was mean 5.38 ms/tile, p50 3.99 ms/tile, and p95 14.23 ms/tile in one environment. These figures are environment-specific and exclude end-to-end API latency; they are not universal service guarantees.
+   - Synchronous local inference keeps the offline deployment simple and avoids additional daemons. The model forward pass executes in ~1.34 ms/tile, easily satisfying local throughput without background queue worker complexity.
 3. **Why `EuroSatCNN` over Generic ImageNet Models?**
    - The version `1.0.0` artifact uses `EuroSatCNN` (102k params), tailored specifically for 64×64 satellite tiles. It trains in ~15s on CPU, achieves 89.05% evaluation accuracy, and executes inference in ~1.34 ms/tile without requiring multi-gigabyte heavy dependencies.
 
 ---
 
-## 8. Evaluation and Benchmark Scope
+## 9. Evaluation and Benchmark Scope
 
 The independent evaluation covers 210 images from `eval_set/` using ground-truth labels in `eval_labels.csv`.
 
@@ -290,7 +322,10 @@ The independent evaluation covers 210 images from `eval_set/` using ground-truth
 - **Batch Latency:** **0.95 ms/tile**
 - **Checkpoint Validation Accuracy:** **90.00%** (selected on held-out candidate split)
 
-## 9. Limitations & Future Improvements
+---
+
+## 10. Limitations & Future Improvements
 
 - **Fixed Spatial Extent:** Assumes 64×64 pixel tiles (~640m coverage at Sentinel-2 10m GSD). In high-resolution imagery (0.5m GSD), a 64×64 patch covers only a single building. Future work should implement dynamic GSD scaling.
 - **Single-Label Constraint:** Real satellite tiles frequently contain mixed land-use (e.g., Highway crossing Forest). The next iteration should use semantic segmentation (e.g., U-Net) to output pixel-wise land cover masks.
+

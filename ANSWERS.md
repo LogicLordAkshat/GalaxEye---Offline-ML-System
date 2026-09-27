@@ -1,103 +1,64 @@
-# GalaxEye Take-Home: Part 3 — Problem Solving Answers
+# Part 3 — Problem Solving & Reasoning
+
+Here are my direct answers and reasoning for the four scenario questions.
 
 ---
 
-### Question 1:
-**"Your classifier turns out to be wrong about 30% of the time. What do you do — and how would you even decide whether it’s 'good enough' to be useful at all?"**
+### 1. Your classifier turns out to be wrong about 30% of the time. What do you do — and how would you even decide whether it’s "good enough" to be useful at all?
 
-#### 1. Why "30% Wrong" is Insufficient Information
-A flat 70% overall accuracy metric obscures critical operational trade-offs:
-- **Asymmetric Cost of Errors:** In satellite analytics, confusing `Forest` with `AnnualCrop` is often a minor visual boundary error. In contrast, mistaking an `Industrial` facility for `SeaLake` or missing critical infrastructure (`Highway`) carries a high operational penalty.
-- **Class Imbalance & Base Rates:** If 80% of incoming tiles are agricultural fields (`AnnualCrop`), a naive majority-class classifier achieves 80% accuracy while being completely useless for all other classes.
-- **Confidence Separation:** If the model is wrong 30% of the time, but all those errors occur with low confidence ($P < 0.55$), while correct predictions have high confidence ($P > 0.85$), the model is highly actionable simply by applying a confidence threshold.
+If my model is 70% accurate overall, the first thing I would do is look past that aggregate number. In real satellite systems, aggregate accuracy doesn't tell you if the system is actually useful or dangerous.
 
-#### 2. Determining "Good Enough" for Analyst Workflow
-To decide if the model is useful, I evaluate it against the specific downstream workflow:
-- **Baseline Comparison:** Does 70% accuracy beat the existing alternative (e.g., random guess = 14.3% across 7 classes, or zero-automation manual scanning)?
-- **Hypothetical workload illustration (not measured):** If an analyst currently reviews 10,000 tiles manually, and a future validated operating point correctly accepts 6,000 high-confidence tiles with >95% precision, the analyst would inspect the remaining 4,000 `UNCERTAIN` tiles. That hypothetical scenario would reduce manual review volume by 60%; this repository does not measure or claim a 60% labor reduction.
-- **Per-Class Precision, Recall, and Confusion Matrix:** We inspect the full confusion matrix. If the model has 93% precision on `Residential` and `Industrial` (as observed on our EuroSAT eval set), those predictions can be auto-approved, routing only ambiguous classes (`River` vs `Highway`) to human review.
+Here is how I would evaluate and handle it:
 
-#### 3. Concrete Remediation Steps
-1. **Calibrate Confidence Thresholds:** Use temperature scaling or validation ROC curves to tune class-specific thresholds so that accepted predictions meet a target precision (e.g., 95%).
-2. **Error Pattern Diagnosis:** Inspect the confusion matrix to identify specific failure modes (e.g., narrow rivers mistaken for linear highways due to 64x64 resolution limits).
-3. **Data Augmentation & Targeted Training:** Augment the underperforming classes with domain-specific transforms (random rotations, color jitter for seasonal changes, spectral index features like NDVI).
-4. **Active Learning Feedback Loop:** Flag `UNCERTAIN` predictions for analyst labeling, adding them to future retraining cycles.
+1. **Check error cost asymmetry:** Confusing `Forest` with `AnnualCrop` along a field boundary is usually a mild visual error. But mistaking an `Industrial` depot for `SeaLake` or missing critical infrastructure like a `Highway` is a costly mistake. I'd evaluate per-class precision and recall rather than overall accuracy.
+2. **Check confidence separation:** If the 30% errors happen when the model has low confidence (say $P < 0.55$), while correct predictions have high confidence ($P > 0.85$), the model is already very useful. I can set a threshold ($\tau = 0.70$) so high-confidence predictions pass through automatically, and only low-confidence ones are routed to an analyst.
+3. **Deciding if it's "good enough":** I compare it against the real-world baseline. If an analyst currently has to manually scan 10,000 tiles by hand with zero automation, and this model can reliably filter out 6,000 obvious tiles with 95%+ precision, it saves huge amounts of manual labor. If it provides a net reduction in human cognitive fatigue without dropping mission-critical targets, it is useful.
+4. **Action plan to improve it:**
+   - Calibrate confidence scores (e.g. Temperature Scaling) so probabilities reflect real accuracy.
+   - Inspect the confusion matrix to see specific failure pairs (e.g. narrow rivers vs linear highways).
+   - Augment training data specifically for the confused classes (rotations, brightness variations, seasonal color shifts).
+   - Use the analyst review feedback from the triage queue to collect hard negative examples for the next retraining round.
 
 ---
 
-### Question 2:
-**"This service runs offline, with no one watching it live. A month after deployment, how would you know it’s still working correctly?"**
+### 2. This service runs offline, with no one watching it live. A month after deployment, how would you know it’s still working correctly?
 
-#### 1. Distinction: Service Health vs. Model Quality
-A system can return HTTP 200 responses with zero server errors while making completely garbage predictions due to domain shift or sensor degradation. Offline observability must monitor both dimensions.
+Because this runs completely offline with no live telemetry, I can't rely on cloud dashboards or Datadog alerts. I have to design passive, local signals that build up in the SQLite database and structured log files.
 
-#### 2. Automated Offline Auditing Mechanisms
-Because the system cannot send alerts over the internet, we inspect local health signals stored in SQLite and structured log files:
+Here is how I would verify system and model health after a month:
 
-1. **System & Operational Health:**
-   - **Error Stage Counts:** Check `validation_error`, `corrupt_image_error`, and `db_error` counts in structured JSON logs.
-   - **Throughput & Latency Drift:** Monitor 95th/99th percentile inference latency. Compare it with a recorded baseline from the same deployment environment; a substantial increase may indicate memory pressure or disk I/O thrashing.
-   - **Storage & Disk Headroom:** Verify SQLite database file size and available disk space to prevent silent write failures.
-
-2. **Model Distribution & Covariate Drift:**
-   - **Class Output Distribution Drift:** In SQLite, query the class distribution over the last 30 days (`GET /predictions/summary`). If `SeaLake` suddenly shifts from 10% to 75% of predictions, the sensor may have camera exposure corruption, cloud cover obstruction, or defective gain settings.
-   - **Confidence Score Degradation:** Track the percentage of `UNCERTAIN` predictions over time. A rising uncertainty rate (e.g. from 15% to 55%) is an early indicator of distribution shift (e.g., winter snow cover, seasonal vegetation change, or differing sun angles).
-
-3. **Golden Validation Canary Test:**
-   - Deploy an offline cron task or startup test that runs a fixed, immutable "canary suite" of 20 pre-labeled satellite tiles through the pipeline.
-   - Compare the output against known golden hashes and expected classes. If accuracy on the canary set drops or outputs diverge from the expected checksum, model corruption or runtime regression has occurred.
+1. **Check class distribution drift:** Using the `GET /predictions/summary` endpoint or a quick SQL query, I'd check the frequency of predicted classes over time. If `SeaLake` normally makes up 10% of tiles but suddenly jumped to 70% in week 3, that immediately tells me something went wrong with the sensor (e.g., lens occlusion, severe gain adjustment, or persistent cloud cover).
+2. **Monitor the uncertainty rate:** I'd track the percentage of predictions flagged as `UNCERTAIN` over time. If the uncertainty rate climbs steadily from 15% to 60%, it indicates severe covariate shift — like seasonal changes (winter snow cover, autumn foliage) or different atmospheric conditions that the training set never saw.
+3. **Inspect error logs & latency percentiles:** Check local structured JSON logs for spikes in `validation_error`, `corrupt_image_error`, or database locks. Also monitor p95 and p99 inference latencies to make sure the CPU isn't throttling or running out of memory.
+4. **Run an immutable golden canary test:** I'd keep a small local set of 20 fixed, pre-labeled tiles on disk that runs through the model on service startup or via a local cron. If the output logits or class predictions on those 20 golden tiles ever diverge from the expected checksum, I know immediately that the model weights or runtime libraries got corrupted.
 
 ---
 
-### Question 3:
-**"Tiles are coming in fine, but the stored results look wrong. Walk through how you would find the cause — your actual steps, in order."**
+### 3. Tiles are coming in fine, but the stored results look wrong. Walk us through how you’d find the cause — your actual steps, in order.
 
-To systematically isolate where the pipeline is failing, I execute the following ordered diagnostic workflow:
+When inputs arrive but outputs look broken, I trace the tile through the pipeline step by step to isolate exactly where corruption happened:
 
-```
-[1. Identify Problematic Record]
-              ↓
-[2. Verify Tile Hash & Raw Bytes]
-              ↓
-[3. Inspect Visual Image Tile]
-              ↓
-[4. Isolate Preprocessing Transformations]
-              ↓
-[5. Run Isolated Model Forward Pass]
-              ↓
-[6. Inspect Full Probability Vector]
-              ↓
-[7. Verify Model Weights Checksum & Version]
-              ↓
-[8. Check Database Mapping & Write Logic]
-              ↓
-[9. Compare Against Structured Logs]
-```
-
-#### Step-by-Step Diagnostic Sequence:
-1. **Retrieve the Problematic Record:** Query the exact database record using its `prediction_id` or `tile_hash` (`GET /predictions/{id}`). Inspect `model_version`, `model_checksum`, `confidence`, `status`, and `all_probabilities`.
-2. **Verify Input Data Integrity:** Hash the raw input file on disk using SHA-256 and confirm it matches `tile_hash`. Ensure the file was not partially transferred or corrupted.
-3. **Visually Inspect the Image:** Open the tile. Is it solid black, overexposed, occluded by 100% cloud cover, or formatted with unexpected multi-spectral channels (e.g. 16-bit TIFF misinterpreted as 8-bit PNG)?
-4. **Isolate Preprocessing Transformation:** Run the `preprocessing_service` on the tile in a Python REPL. Check tensor shape `(1, 3, 64, 64)`, min/max pixel values (`0.0` to `1.0`), channel ordering (RGB vs BGR vs RGBA), and normalization divisor (`/ 255.0`).
-5. **Execute Raw Model Inference:** Pass the preprocessed tensor into `model_manager.model(tensor)` directly. Check raw logit values before Softmax.
-6. **Analyze Class Probability Distribution:** Review `all_probabilities`. Is the model uncertain between two similar classes (e.g., 48% `River` vs 52% `Highway`), or is it assigning 99% probability to an absurd class?
-7. **Verify Model Weights Integrity:** Compute the SHA-256 checksum of `models/landuse_cnn_v1.pt` and compare it against `model_checksum` in `models/model_metadata.json`. This confirms no corrupted weights, truncated files, or silent model swaps.
-8. **Inspect Class Index Mapping:** Verify that `class_to_idx` matches the alphabetical order used during training. (A common bug is class list sorting mismatch between training script and inference service, causing label swapping).
-9. **Check Database Persistence Layer:** Compare the dictionary returned by `inference_engine` with the values written into the SQLite row to rule out column transposition during SQL `INSERT`.
+1. **Pull the exact record:** I'd take the `prediction_id` or `tile_hash` and query `GET /predictions/{id}` to inspect what was actually saved — the predicted class, confidence, full probability distribution, model version, and model checksum.
+2. **Verify input file integrity:** Compute the SHA-256 hash of the raw tile on disk and match it against the stored `tile_hash` to make sure the file wasn't truncated or corrupted during transfer.
+3. **Visually open the raw image:** Check if the image itself is pure black, overexposed, 100% white cloud cover, or formatted with weird multi-spectral bands (like a 16-bit GeoTIFF misinterpreted as an 8-bit PNG).
+4. **Step through preprocessing in Python:** In a local REPL, run `preprocessing_service.validate_and_preprocess()` on that tile. Inspect the tensor shape `(1, 3, 64, 64)`, min/max values (`[0.0, 1.0]`), channel order (RGB vs BGR), and division by 255.0.
+5. **Run a manual model forward pass:** Pass the preprocessed tensor directly into `model_manager.model(tensor)` and check the raw logits before Softmax.
+6. **Inspect the full probability vector:** Look at all 7 class scores. Is the model split 50/50 between two similar classes (like `River` and `Highway`), or is it completely confident in a wrong class?
+7. **Verify model weight checksum:** Hash the on-disk `.pt` file using SHA-256 and compare it to `model_metadata.json`. This proves nobody accidentally replaced or truncated the weights artifact.
+8. **Check the label vocabulary mapping:** Verify that `class_to_idx` in `app/ml/model.py` exactly matches the alphabetical index order used during training. A mismatch here is a classic bug that swaps class names silently.
+9. **Check the database insert statement:** Compare the dictionary returned by inference against what was written to SQLite to confirm columns weren't transposed during the SQL insert.
 
 ---
 
-### Question 4:
-**"What’s the weakest part of your design, and what would break it first?"**
+### 4. What’s the weakest part of your design, and what would break it first?
 
-#### 1. The Weakest Component: Resolution Sensitivity & Fixed Spatial Scale
 The weakest part of this design is the assumption of a **fixed 64×64 pixel spatial input with single-label classification**.
 
-#### 2. What Would Break It First in Real Satellite Operations
-- **Ground Sampling Distance (GSD) Mismatch:** The model was trained on EuroSAT (Sentinel-2 imagery at ~10 meters/pixel resolution, where a 64×64 tile covers 640m × 640m of terrain). If the deployment receives high-resolution commercial imagery (e.g. PlanetScope at 3m/pixel or WorldView at 0.3m/pixel), a 64×64 crop will contain only a single rooftop or tree canopy rather than a recognizable "Residential" neighborhood or "Forest". The model will fail completely because the spatial context is radically shifted.
-- **Mixed Land-Use & Boundary Tiles:** Real-world satellite tiles rarely contain 100% pure homogenous land use. A single tile frequently contains a highway cutting through farmland near a river. Forcing a single discrete class label with standard multi-class Softmax causes arbitrary predictions and high uncertainty on boundary tiles.
+Here is what would break it first in a production satellite mission:
 
-#### 3. Next Engineering Iteration
-1. **Multi-Resolution Pyramids / Patch Tiling:** Implement dynamic spatial tiling that accepts arbitrary large-scale GeoTIFF scenes and extracts tiles scaled according to their physical Ground Sampling Distance metadata.
-2. **Transition to Semantic Segmentation (U-Net / DeepLab):** Move from tile-level classification to pixel-level semantic segmentation, producing pixel-wise land-cover masks rather than single categorical labels.
-3. **Multi-Spectral & Sensor Ingestion:** Upgrade preprocessing to ingest raw 13-band Sentinel-2 or SAR data with automatic radiometric calibration and NoData masking.
+1. **Ground Sampling Distance (GSD) mismatch:** The model was trained on EuroSAT (Sentinel-2 at ~10m per pixel, where a 64×64 tile covers 640m × 640m of terrain). If the system is deployed on high-resolution commercial imagery (e.g. WorldView at 0.3m/pixel or PlanetScope at 3m/pixel), a 64×64 crop covers only a single rooftop or tree canopy instead of a recognizable "Residential" neighborhood or "Forest". The spatial context completely breaks down, and the classifier will produce nonsense.
+2. **Mixed land-use on tile boundaries:** Real satellite swaths don't fit into neat discrete categories. A single tile often has a highway running through farmland with a river nearby. Forcing a single discrete class label with Softmax makes the model struggle on every mixed boundary tile.
+
+**How I would fix this in the next iteration:**
+- Implement dynamic sliding-window tiling that extracts crops scaled to the physical Ground Sampling Distance (GSD) metadata of the input scene.
+- Transition from tile-level classification to pixel-level semantic segmentation (like a lightweight U-Net), which produces continuous land-cover masks rather than single categorical labels.
